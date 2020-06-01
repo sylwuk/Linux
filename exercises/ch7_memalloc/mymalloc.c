@@ -47,7 +47,7 @@ void* mymalloc(size_t size) {
          /* Split the node if it is bigger than the requested block
           * and update the list with the new smaller leftover node. */
          node += size;
-         node->size = node->size - size;
+         node->size = node->size - size;  /* node->size already takes sizeof(size_t) into account */
          node->next = nbrk->next;
          node->prev = nbrk->prev;
          if(nbrk->prev != NULL) {
@@ -90,72 +90,49 @@ void myfree(void *ptr) {
          node = node->next;
       }
 
-      if(node == NULL) {
-         /* Freed block is further in memory than any of the nodes on the list. */
-         nbrk->prev = prev;
-         nbrk->next = NULL;
-         prev->next = nbrk;
-         if((void *)((char *)nbrk + nbrk->size) >= sbrk(0)) {
-            /* If the freed block is at the end of whole data region
-             * check if the nodes behind are in consecutive memory
-             * and if the combined size is above free threshold.
-             * If yes, move the program break back. */
-            node = nbrk->prev;
-            size_t sum = nbrk->size;
-            while(node != NULL && ((char *)node + node->size) == (char *)node->next) {
-               sum += node->size;
-               node = node->prev;
-            }
-            if(sum > FREE_THRS) {
-               /* Sum of the sizes of last nodes is higher than free threshold.
-                * Move program break back. */
-               if(node == NULL) {
-                  /* Reached the beginning of the list.
-                   * Destroy the list. */
-                  memlist = NULL;
-               }
-               sbrk(-sum);
-            }
-         }
+      /* Freed block is before in memory than the last found node. */
+      nbrk->next = node;
+      nbrk->prev = prev;
+      if(prev == NULL) {
+         /* Update the list head if the freed block is before the current list head in memory */
+         memlist = nbrk;
       } else {
-         /* Freed block is before in memory than the last found node. */
-         nbrk->next = node;
-         nbrk->prev = prev;
+         prev->next = nbrk;
+      }
+      if(node != NULL) {
          node->prev = nbrk;
-         if(prev == NULL) {
-            /* Update the list head if the freed block is before the current list head in memory */
-            memlist = nbrk;
-         }
-         /* Check if the program break can be moved. */
-         node = nbrk;
-         size_t sum = 0;
-         while(node != NULL && ((char *)node + node->size) == (char *)node->next) {
-            /* Sum the memory of nodes after the current node
-             * that are consecutive in memory. */
-            sum += node->size;
-            node = node->next;
-         }
-         prev = nbrk;
-         node = nbrk->prev;
-         while(node != NULL && ((char *)node + node->size) == (char *)node->next) {
-            /* Sum previous consecutive memory nodes. */
-            sum += node->size;
-            prev = node;
-            node = node->prev;
-         }
+      }
+      /* Check if the program break can be moved. */
+      node = nbrk;
+      /* If currently freed node is the last on the list
+       * set the sum to its size since the forward checking while loop
+       * will not execute.*/
+      size_t sum = nbrk->next == NULL ? nbrk->size : 0;
+      while(node != NULL && ((char *)node + node->size) == (char *)node->next) {
+         /* Sum the memory of nodes after the current node
+          * that are consecutive in memory. */
+         sum += node->size;
+         node = node->next;
+      }
+      prev = nbrk;
+      node = nbrk->prev;
+      while(node != NULL && ((char *)node + node->size) == (char *)node->next) {
+         /* Sum previous consecutive memory nodes. */
+         sum += node->size;
+         prev = node;
+         node = node->prev;
+      }
 
-         node = prev;
-
-         if((void *)((char *)node + sum) >= sbrk(0) && sum > FREE_THRS) {
-            /* Sum of the sizes of last nodes is higher than free threshold.
-             * Move program break back. */
-            if(node->prev == NULL) {
-               /* Reached the beginning of the list.
-                * Destroy the list. */
-               memlist = NULL;
-            }
-            sbrk(-sum);
+      node = prev;
+      if((void *)((char *)node + sum) >= sbrk(0) && sum > FREE_THRS) {
+         /* Sum of the sizes of last nodes is higher than free threshold.
+          * Move program break back. */
+         if(node->prev == NULL) {
+            /* Reached the beginning of the list.
+             * Destroy the list. */
+            memlist = NULL;
          }
+         sbrk(-sum);
       }
    }
    return;
