@@ -104,6 +104,7 @@ void myfree(void *ptr) {
       }
       /* Check if the program break can be moved. */
       node = nbrk;
+
       /* If currently freed node is the last on the list
        * set the sum to its size since the forward checking while loop
        * will not execute.*/
