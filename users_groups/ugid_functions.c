@@ -35,7 +35,7 @@ uid_t userIdFromName(const char *name) {
 
    if(name == NULL || *name == '\0') return -1;  /* On NULL or empty string return -1 */
 
-   u = strtol(name, endptr, 10);    /* As a convenience to caller allow numeric string */
+   u = strtol(name, &endptr, 10);    /* As a convenience to caller allow numeric string */
    if(*endptr == '\0') return u;
 
    pwd = getpwnam(name);
@@ -70,7 +70,7 @@ gid_t groupIdFromName(const char *name) {
 
    if(name == NULL || *name == '\0') return -1;  /* On NULL or empty string return -1 */
 
-   g = strtol(name, endptr, 10);    /* As a convenience to caller allow numeric string */
+   g = strtol(name, &endptr, 10);    /* As a convenience to caller allow numeric string */
    if(*endptr == '\0') return g;
 
    grp = getgrnam(name);
